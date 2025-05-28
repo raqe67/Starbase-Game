@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Starbase: Drift in the Void</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
+    body {
+      margin: 0;
+      background-color: #000;
+      overflow: hidden;
+      font-family: 'Orbitron', monospace;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: url('background.png') no-repeat center center;
+      background-size: cover;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 22px;
+      color: cyan;
+      text-shadow: 0 0 5px #0ff;
+      display: none;
+    }
+    #highscore {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 22px;
+      color: magenta;
+      text-shadow: 0 0 5px #f0f;
+      display: none;
+    }
+    #game-over, #start-screen {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: #fff;
+      text-shadow: 0 0 10px red;
+      text-align: center;
+    }
+    #game-over {
+      display: none;
+    }
+    #start-screen {
+      display: block;
+    }
+    button {
+      font-family: 'Orbitron', monospace;
+      font-size: 18px;
+      padding: 10px;
+      margin-top: 20px;
+      background: #111;
+      border: 2px solid cyan;
+      color: cyan;
+      cursor: pointer;
+      text-shadow: 0 0 5px cyan;
+    }
+    button:hover {
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0</div>
+  <div id="highscore">High Score: 0</div>
+  <div id="start-screen">
+    <div>Welcome to Starbase: Drift in the Void</div>
+    <button onclick="startGame()">Start</button>
+  </div>
+  <div id="game-over">
+    <div>Game Over!</div>
+    <div id="final-score"></div>
+    <div id="final-highscore"></div>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const asteroidImg = new Image();
+    asteroidImg.src = 'asteroids.png';
+
+    const rocketImg = new Image();
+    rocketImg.src = 'rocket.png'; // Replace this with your actual rocket image path
+
+    let rocket = { x: 220, y: 580, width: 40, height: 60 };
+    let asteroids = [];
+    let leftPressed = false;
+    let rightPressed = false;
+    let score = 0;
+    let highscore = localStorage.getItem('highscore') || 0;
+    let gameOver = false;
+    let gameStarted = false;
+
+    document.getElementById('highscore').textContent = 'High Score: ' + highscore;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = true;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = true;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = false;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = false;
+    });
+
+    function drawRocket() {
+      ctx.drawImage(rocketImg, rocket.x, rocket.y, rocket.width, rocket.height);
+    }
+
+    function drawAsteroids() {
+      for (let a of asteroids) {
+        ctx.drawImage(asteroidImg, a.x - a.radius, a.y - a.radius, a.radius * 2, a.radius * 2);
+      }
+    }
+
+    function updateAsteroids() {
+      for (let a of asteroids) {
+        a.y += a.speed;
+      }
+      asteroids = asteroids.filter(a => a.y < canvas.height);
+      if (Math.random() < 0.02) {
+        asteroids.push({
+          x: Math.random() * (canvas.width - 40) + 20,
+          y: -20,
+          radius: 20 + Math.random() * 10,
+          speed: 2 + Math.random() * 3,
+        });
+      }
+    }
+
+    function checkCollision() {
+      for (let a of asteroids) {
+        let dx = a.x - (rocket.x + rocket.width / 2);
+        let dy = a.y - (rocket.y + rocket.height / 2);
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < a.radius + rocket.width / 2) {
+          gameOver = true;
+          if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('highscore', highscore);
+          }
+          document.getElementById('final-score').textContent = 'Score: ' + score;
+          document.getElementById('final-highscore').textContent = 'High Score: ' + highscore;
+          document.getElementById('game-over').style.display = 'block';
+        }
+      }
+    }
+
+    function updateScore() {
+      score++;
+      document.getElementById('score').textContent = 'Score: ' + score;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawRocket();
+      drawAsteroids();
+    }
+
+    function update() {
+      if (leftPressed && rocket.x > 0) rocket.x -= 5;
+      if (rightPressed && rocket.x + rocket.width < canvas.width) rocket.x += 5;
+
+      updateAsteroids();
+      checkCollision();
+      updateScore();
+    }
+
+    function gameLoop() {
+      if (!gameOver && gameStarted) {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function startGame() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('score').style.display = 'block';
+      document.getElementById('highscore').style.display = 'block';
+      gameStarted = true;
+      gameLoop();
+    }
+
+    function restartGame() {
+      rocket.x = 220;
+      asteroids = [];
+      score = 0;
+      gameOver = false;
+      gameStarted = true;
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('score').textContent = 'Score: 0';
+      document.getElementById('highscore').textContent = 'High Score: ' + highscore;
+      gameLoop();
+    }
+  </script>
+</body>
+</html>
